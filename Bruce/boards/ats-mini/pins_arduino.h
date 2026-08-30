@@ -36,6 +36,22 @@
 #define SDA 18
 #define SCL 17
 
+// System I2C bus (ATS Mini has no secondary I2C — aliases to main I2C pins)
+#define SYS_I2C_SDA 18
+#define SYS_I2C_SCL 17
+
+// Grove connector I2C (ATS Mini has no Grove connector — map to free SPI header GPIOs)
+#define GROVE_SDA 14
+#define GROVE_SCL 13
+
+// Serial bus (ATS Mini has no UART header — map to free SPI header GPIOs)
+#define SERIAL_TX 11
+#define SERIAL_RX 12
+
+// GPS serial (ATS Mini has no GPS — same pins as serial bus)
+#define GPS_SERIAL_TX 11
+#define GPS_SERIAL_RX 12
+
 // SPI (not used on ATS Mini — no SD/SPI peripherals, but SPI lib needs defaults)
 #define SCK  12
 #define MISO 13
