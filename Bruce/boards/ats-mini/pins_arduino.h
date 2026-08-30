@@ -41,6 +41,10 @@
 #define MISO 13
 #define MOSI 11
 #define SS   10
+// BadUSB CH9329 serial (ATS Mini has no CH9329 — these map to free SPI header GPIOs)
+#define BAD_TX 11
+#define BAD_RX 12
+
 // Bruce SPI_*_PIN naming convention (used by utils.cpp device info, CC1101/NRF24 drivers)
 #define SPI_SCK_PIN  SCK
 #define SPI_MISO_PIN MISO
