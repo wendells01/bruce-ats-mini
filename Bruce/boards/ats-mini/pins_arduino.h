@@ -32,8 +32,15 @@
 #define ENCODER_PIN_B    1
 #define ENCODER_PUSH_BUTTON  21
 
-// SI4732 (not used in this port, but defined for reference)
-// SCL=17, SDA=18, RESET=16, POWER=15
+// I2C (SI4732 on native firmware — not used in this port, but Wire needs defaults)
+#define SDA 18
+#define SCL 17
+
+// SPI (not used on ATS Mini — no SD/SPI peripherals, but SPI lib needs defaults)
+#define SCK  12
+#define MISO 13
+#define MOSI 11
+#define SS   10
 
 // Audio (not used in this port)
 #define PINAUDIO_MUTE    3
