@@ -1,0 +1,32 @@
+# Build artifacts
+*.bin
+*.elf
+*.map
+
+# PlatformIO
+.pio/
+.vscode/
+__pycache__/
+*.py[cod]
+
+# Bruce-specific
+bruce.conf
+ISSUES.md
+include/webFiles.h
+include/current_year.h
+checksum.sha256
+mqjs_build/
+docker-logs/
+tmp/
+*.sh
+!*.md
+
+# OMO/OpenCode state
+.omo/
+.codegraph
+.codegraph/
+.cortexkit/
+
+# OS files
+.DS_Store
+*~
