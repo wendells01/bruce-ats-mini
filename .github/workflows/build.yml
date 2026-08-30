@@ -1,0 +1,90 @@
+name: Build Bruce ATS Mini
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Bruce/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Bruce/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build ats-mini
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-multilib libc6-dev-i386
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('Bruce/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Cache PIO libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            Bruce/.pio/libdeps
+          key: ${{ runner.os }}-pio-ats-mini-${{ hashFiles('Bruce/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-ats-mini-
+
+      - name: Install PlatformIO
+        run: |
+          pip install platformio requests esptool intelhex
+
+      - name: Inject version
+        working-directory: Bruce
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            version=${{ github.ref_name }}
+          else
+            version="${GITHUB_SHA::7}"
+          fi
+          sed -i "s/-DBRUCE_VERSION=/-DBRUCE_VERSION='\"$version\"' ; /g" ./platformio.ini
+          sed -i "s/-DGIT_COMMIT_HASH='\"Homebrew\"'/\!echo '-DGIT_COMMIT_HASH=\\\\\\\\\"'\$\(git describe --always --dirty)'\\\\\\\\\"'/g" ./platformio.ini
+
+      - name: Build
+        working-directory: Bruce
+        run: |
+          set -o pipefail
+          platformio run -e ats-mini | tee build-ats-mini.log
+
+      - name: Build summary
+        if: always()
+        run: |
+          if [[ -f Bruce/build-ats-mini.log ]]; then
+            echo "Last 75 lines of build log:"
+            tail -n 75 Bruce/build-ats-mini.log
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bruce-ats-mini-${{ github.sha }}
+          path: Bruce/Bruce-*.bin
+          retention-days: 7
+          if-no-files-found: error

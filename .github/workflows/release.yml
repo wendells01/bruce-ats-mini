@@ -1,0 +1,73 @@
+name: Release Bruce ATS Mini
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc-multilib libc6-dev-i386
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('Bruce/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Install PlatformIO
+        run: |
+          pip install platformio requests esptool intelhex
+
+      - name: Inject version
+        working-directory: Bruce
+        run: |
+          version=${{ github.ref_name }}
+          sed -i "s/-DBRUCE_VERSION=/-DBRUCE_VERSION='\"$version\"' ; /g" ./platformio.ini
+          sed -i "s/-DGIT_COMMIT_HASH='\"Homebrew\"'/\!echo '-DGIT_COMMIT_HASH=\\\\\\\\\"'\$\(git describe --always --dirty)'\\\\\\\\\"'/g" ./platformio.ini
+
+      - name: Build
+        working-directory: Bruce
+        run: |
+          set -o pipefail
+          platformio run -e ats-mini | tee build-ats-mini.log
+
+      - name: Build summary
+        if: always()
+        run: |
+          if [[ -f Bruce/build-ats-mini.log ]]; then
+            echo "Last 75 lines of build log:"
+            tail -n 75 Bruce/build-ats-mini.log
+          fi
+
+      - name: Rename binary
+        run: |
+          mv Bruce/Bruce-*.bin "Bruce/Bruce-ats-mini-${{ github.ref_name }}.bin"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Bruce ATS Mini ${{ github.ref_name }}"
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            Bruce/Bruce-ats-mini-*.bin
