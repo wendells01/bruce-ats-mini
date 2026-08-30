@@ -41,6 +41,7 @@
 #define MISO 13
 #define MOSI 11
 #define SS   10
+#define SPI_SS_PIN SS  // Alias used by RFID2.h / MFRC522 driver
 
 // Audio (not used in this port)
 #define PINAUDIO_MUTE    3
