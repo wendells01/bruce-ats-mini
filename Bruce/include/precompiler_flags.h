@@ -121,7 +121,9 @@
   #define TFT_BL -1
 #endif
 #ifndef TOUCH_CS
-  #define TOUCH_CS -1
+  #if !defined(TFT_PARALLEL_8_BIT)
+    #define TOUCH_CS -1
+  #endif
 #endif
 #ifndef SDCARD_MOSI
   #define SDCARD_MOSI -1
