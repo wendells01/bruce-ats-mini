@@ -41,7 +41,11 @@
 #define MISO 13
 #define MOSI 11
 #define SS   10
-#define SPI_SS_PIN SS  // Alias used by RFID2.h / MFRC522 driver
+// Bruce SPI_*_PIN naming convention (used by utils.cpp device info, CC1101/NRF24 drivers)
+#define SPI_SCK_PIN  SCK
+#define SPI_MISO_PIN MISO
+#define SPI_MOSI_PIN MOSI
+#define SPI_SS_PIN   SS
 
 // Audio (not used in this port)
 #define PINAUDIO_MUTE    3
