@@ -73,6 +73,18 @@ jobs:
           set -o pipefail
           platformio run -e ats-mini | tee build-ats-mini.log
 
+      - name: Generate merged.bin
+        working-directory: Bruce
+        run: |
+          esptool.py --chip esp32s3 merge_bin \
+            --flash_mode qio \
+            --flash_freq 80m \
+            --flash_size 16MB \
+            -o merged.bin \
+            0x0 .pio/build/ats-mini/bootloader.bin \
+            0x8000 .pio/build/ats-mini/partitions.bin \
+            0x10000 .pio/build/ats-mini/firmware.bin
+
       - name: Build summary
         if: always()
         run: |
@@ -85,6 +97,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Bruce-ats-mini-${{ github.sha }}
-          path: Bruce/Bruce-*.bin
+          path: |
+            Bruce/Bruce-*.bin
+            Bruce/merged.bin
           retention-days: 7
           if-no-files-found: error
