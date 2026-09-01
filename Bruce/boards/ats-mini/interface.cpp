@@ -13,49 +13,6 @@ static bool backlightInitialized = false;
 #define ATSMINI_BL_CHANNEL 0
 
 /***************************************************************************************
-** Function name: _setup_gpio()
-** Location: main.cpp
-** Description:   initial setup for the device
-***************************************************************************************/
-void _setup_gpio() {
-    // Rotary encoder pins with internal pull-ups
-    pinMode(ENCODER_PIN_A, INPUT_PULLUP);
-    pinMode(ENCODER_PIN_B, INPUT_PULLUP);
-    pinMode(ENCODER_PUSH_BUTTON, INPUT_PULLUP);
-
-    // TFT 8-bit parallel data bus pins as outputs
-    pinMode(TFT_D0, OUTPUT);
-    pinMode(TFT_D1, OUTPUT);
-    pinMode(TFT_D2, OUTPUT);
-    pinMode(TFT_D3, OUTPUT);
-    pinMode(TFT_D4, OUTPUT);
-    pinMode(TFT_D5, OUTPUT);
-    pinMode(TFT_D6, OUTPUT);
-    pinMode(TFT_D7, OUTPUT);
-    pinMode(TFT_WR, OUTPUT);
-    pinMode(TFT_RD, OUTPUT);
-    pinMode(TFT_CS, OUTPUT);
-    pinMode(TFT_DC, OUTPUT);
-    pinMode(TFT_RST, OUTPUT);
-    digitalWrite(TFT_RD, HIGH);
-
-    // Display reset sequence (GC9307 needs longer reset pulse)
-    digitalWrite(TFT_RST, HIGH);
-    delay(50);
-    digitalWrite(TFT_RST, LOW);
-    delay(100);
-    digitalWrite(TFT_RST, HIGH);
-    delay(200);
-
-    // Backlight output (PWM attached lazily in _setBrightness)
-    pinMode(TFT_BL, OUTPUT);
-    digitalWrite(TFT_BL, HIGH);
-
-    bruceConfig.startupApp = "Bruce";
-    Serial.begin(115200);
-}
-
-/***************************************************************************************
 ** Function name: _init_display()
 ** Description:   Initialize display with proper GC9307/ST7789 sequence
 **                Based on original ATS Mini firmware (ats-mini.ino)
