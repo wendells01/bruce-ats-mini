@@ -3,6 +3,7 @@
 #include <interface.h>
 
 #include <rotary_decoder.h>
+#include <esp_task_wdt.h>
 
 static RotaryDecoder encoder;
 
@@ -11,6 +12,11 @@ static bool backlightInitialized = false;
 
 // PWM channel for the TFT backlight (GPIO38)
 #define ATSMINI_BL_CHANNEL 0
+
+// Feed task watchdog during long operations (BLE, etc.)
+static inline void feed_task_wdt() {
+    esp_task_wdt_reset();
+}
 
 /***************************************************************************************
 ** Function name: _init_display()
@@ -154,8 +160,10 @@ void _setBrightness(uint8_t brightval) {
     if (brightval == 0) {
         ledcWrite(TFT_BL, 0);
     } else {
-        int bl = MINBRIGHT + round(((1023 - MINBRIGHT) * brightval / 100));
+        // Map 1-100 to PWM range (1-1023 for 10-bit) with float precision
+        int bl = MINBRIGHT + round(((1023.0f - MINBRIGHT) * brightval / 100.0f));
         if (bl > 1023) bl = 1023;
+        if (bl < MINBRIGHT) bl = MINBRIGHT;
         ledcWrite(TFT_BL, bl);
     }
 }
@@ -167,7 +175,7 @@ void _setBrightness(uint8_t brightval) {
 **********************************************************************/
 void pollEncoder(void) {
     if (!encoderInitialized) {
-        encoder.begin(ENCODER_PIN_A, ENCODER_PIN_B, 2);
+        encoder.begin(ENCODER_PIN_A, ENCODER_PIN_B, 4);  // 4 steps per detent = 1 step per physical click
         encoderInitialized = true;
     }
     encoder.poll();
