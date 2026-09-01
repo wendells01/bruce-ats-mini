@@ -68,7 +68,9 @@ void _init_display() {
     // Detect and fix mirrored/inverted display (from original ATS Mini firmware)
     // https://github.com/esp32-si4732/ats-mini/issues/41
     // Read display ID (3rd byte of RDDID)
-    uint8_t did3 = tft.readcommand8(0x04, 3);  // ST7789_RDDID = 0x04
+    // Use tft.native()->readcommand8() since readcommand8() is not exposed in tft_display
+    TFT_eSPI *tft_native = tft.native();
+    uint8_t did3 = tft_native->readcommand8(0x04, 3);  // ST7789_RDDID = 0x04
     // 0x048181B3 - original display
     // 0x04858552 - high gamma display
     // 0x00009307 - inverted & mirrored display
