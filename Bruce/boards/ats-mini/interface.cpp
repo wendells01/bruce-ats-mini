@@ -39,13 +39,13 @@ void _setup_gpio() {
     pinMode(TFT_RST, OUTPUT);
     digitalWrite(TFT_RD, HIGH);
 
-    // Display reset sequence (GC9307 needs proper reset pulse)
+    // Display reset sequence (GC9307 needs longer reset pulse)
     digitalWrite(TFT_RST, HIGH);
-    delay(10);
+    delay(50);
     digitalWrite(TFT_RST, LOW);
-    delay(20);
+    delay(100);
     digitalWrite(TFT_RST, HIGH);
-    delay(120);
+    delay(200);
 
     // Backlight output (PWM attached lazily in _setBrightness)
     pinMode(TFT_BL, OUTPUT);
@@ -57,38 +57,16 @@ void _setup_gpio() {
 
 /***************************************************************************************
 ** Function name: _post_setup_gpio()
-** Description:   second stage gpio setup (after TFT init) - apply full brightness + GC9307 init
+** Description:   second stage gpio setup (after TFT init) - apply full brightness + minimal GC9307 init
 ***************************************************************************************/
 void _post_setup_gpio() {
     _setBrightness(100);
 
-    // GC9307-specific init sequence (ST7789-compatible but with GC9307-specific commands)
-    // This runs after TFT_eSPI::begin() which does basic ST7789 init
+    // Minimal GC9307 init (ST7789 driver + minimal commands to turn on display)
     // Use tft.native()->writedata() since writedata() is not exposed in tft_display
     TFT_eSPI *tft_native = tft.native();
     tft.writecommand(0x11); // SLPOUT - Sleep out
     delay(120);
-    tft.writecommand(0x36); tft_native->writedata(0x00); // MADCTL - Memory access control (rotation 0)
-    tft.writecommand(0x3A); tft_native->writedata(0x55); // COLMOD - 16-bit color (RGB565)
-    tft.writecommand(0xB2); tft_native->writedata(0x0C); tft_native->writedata(0x0C); tft_native->writedata(0x00); tft_native->writedata(0x33); tft_native->writedata(0x33); // PORCTRL
-    tft.writecommand(0xB7); tft_native->writedata(0x35); // GCTRL - Gate control
-    tft.writecommand(0xBB); tft_native->writedata(0x19); // VCOMS - VCOM setting
-    tft.writecommand(0xC0); tft_native->writedata(0x2C); // LCMCTRL - LCM control
-    tft.writecommand(0xC2); tft_native->writedata(0x01); // VDVVRHEN - VDV/VRH enable
-    tft.writecommand(0xC3); tft_native->writedata(0x12); // VRHS - VRH set
-    tft.writecommand(0xC4); tft_native->writedata(0x20); // VDVS - VDV set
-    tft.writecommand(0xC6); tft_native->writedata(0x0F); // FRCTR2 - Frame rate control (60Hz)
-    tft.writecommand(0xD0); tft_native->writedata(0xA4); tft_native->writedata(0xA1); // PWCTRL1 - Power control
-    tft.writecommand(0xE0); // PVGAMCTRL - Positive gamma
-    tft_native->writedata(0xD0); tft_native->writedata(0x04); tft_native->writedata(0x0D); tft_native->writedata(0x11);
-    tft_native->writedata(0x11); tft_native->writedata(0x13); tft_native->writedata(0x2B); tft_native->writedata(0x3F);
-    tft_native->writedata(0x54); tft_native->writedata(0x4C); tft_native->writedata(0x18); tft_native->writedata(0x0D);
-    tft_native->writedata(0x0B); tft_native->writedata(0x1F); tft_native->writedata(0x23);
-    tft.writecommand(0xE1); // NVGAMCTRL - Negative gamma
-    tft_native->writedata(0xD0); tft_native->writedata(0x04); tft_native->writedata(0x0C); tft_native->writedata(0x11);
-    tft_native->writedata(0x11); tft_native->writedata(0x13); tft_native->writedata(0x2C); tft_native->writedata(0x3F);
-    tft_native->writedata(0x44); tft_native->writedata(0x51); tft_native->writedata(0x2F); tft_native->writedata(0x1F);
-    tft_native->writedata(0x1F); tft_native->writedata(0x20); tft_native->writedata(0x23);
     tft.writecommand(0x29); // DISPON - Display on
     delay(20);
 }
