@@ -97,9 +97,9 @@
 // Battery is read directly from the ADC on GPIO4
 #define ANALOG_BAT_PIN BATTERY_PIN
 
-// TFT_eSPI configuration for the 8-bit parallel ST7789/GC9307
+// TFT_eSPI configuration for the 8-bit parallel GC9307
 #define USER_SETUP_LOADED
-#define ST7789_DRIVER 1
+#define GC9307_DRIVER 1
 #define TFT_PARALLEL_8_BIT 1
 #define TFT_WIDTH  170
 #define TFT_HEIGHT 320
