@@ -16,16 +16,16 @@
 #define TFT_RST    5
 #define TFT_WR     8
 #define TFT_RD     9
-#define TFT_BL     38   // Backlight PWM
-// Data lines D0-D7: IO39-IO46
+#define TFT_BL     38   // Backlight PWM (controlled via PWM, not TFT_eSPI)
+// Data lines D0-D7: IO39-46 (D0-D3: 39-42, D4-D7: 45-48)
 #define TFT_D0     39
 #define TFT_D1     40
 #define TFT_D2     41
 #define TFT_D3     42
-#define TFT_D4     43
-#define TFT_D5     44
-#define TFT_D6     45
-#define TFT_D7     46
+#define TFT_D4     45
+#define TFT_D5     46
+#define TFT_D6     47
+#define TFT_D7     48
 
 // Rotary Encoder
 #define ENCODER_PIN_A    2
@@ -97,13 +97,14 @@
 // Battery is read directly from the ADC on GPIO4
 #define ANALOG_BAT_PIN BATTERY_PIN
 
-// TFT_eSPI configuration for the 8-bit parallel GC9307 (using ST7789 driver with custom init)
+// TFT_eSPI configuration for the 8-bit parallel GC9307 (using ST7789 driver with INIT_SEQUENCE_3)
 #define USER_SETUP_LOADED
 #define ST7789_DRIVER 1
+#define INIT_SEQUENCE_3
 #define TFT_PARALLEL_8_BIT 1
 #define TFT_WIDTH  170
 #define TFT_HEIGHT 320
-#define TFT_BACKLIGHT_ON 1
+#define TFT_BACKLIGHT_ON HIGH
 #define TFT_INVERSION_ON
 #define TFT_RGB_ORDER TFT_RGB
 

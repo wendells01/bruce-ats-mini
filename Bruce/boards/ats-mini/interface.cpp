@@ -56,19 +56,96 @@ void _setup_gpio() {
 }
 
 /***************************************************************************************
+** Function name: _init_display()
+** Description:   Initialize display with proper GC9307/ST7789 sequence
+**                Based on original ATS Mini firmware (ats-mini.ino)
+***************************************************************************************/
+void _init_display() {
+    // TFT display setup - basic init
+    tft.begin();
+    tft.setRotation(3);
+
+    // Detect and fix mirrored/inverted display (from original ATS Mini firmware)
+    // https://github.com/esp32-si4732/ats-mini/issues/41
+    // Read display ID (3rd byte of RDDID)
+    uint8_t did3 = tft.readcommand8(0x04, 3);  // ST7789_RDDID = 0x04
+    // 0x048181B3 - original display
+    // 0x04858552 - high gamma display
+    // 0x00009307 - inverted & mirrored display
+    if (did3 == 0x93) {
+        // Inverted & mirrored display fix
+        tft.invertDisplay(0);
+        tft.writecommand(0x36);  // MADCTL
+        tft.native()->writedata(0xE8);  // TFT_MAD_MV | TFT_MAD_MX | TFT_MAD_MY | TFT_MAD_BGR
+    } else if (did3 == 0x85) {
+        // High gamma display
+        tft.writecommand(0x26);  // GAMSET
+        tft.native()->writedata(8);  // Gamma Curve 3
+
+        tft.writecommand(0x55);  // WRCACE (content adaptive brightness and color)
+        tft.native()->writedata(0xB1);  // High enhancement, UI mode
+    }
+
+    // Clear screen
+    tft.fillScreen(0x0000);  // Black
+
+    // Backlight PWM setup (handled by _setBrightness)
+    _setBrightness(100);
+}
+
+/***************************************************************************************
+** Function name: _setup_gpio()
+** Location: main.cpp
+** Description:   initial setup for the device
+***************************************************************************************/
+void _setup_gpio() {
+    // Rotary encoder pins with internal pull-ups
+    pinMode(ENCODER_PIN_A, INPUT_PULLUP);
+    pinMode(ENCODER_PIN_B, INPUT_PULLUP);
+    pinMode(ENCODER_PUSH_BUTTON, INPUT_PULLUP);
+
+    // TFT 8-bit parallel data bus pins as outputs
+    pinMode(TFT_D0, OUTPUT);
+    pinMode(TFT_D1, OUTPUT);
+    pinMode(TFT_D2, OUTPUT);
+    pinMode(TFT_D3, OUTPUT);
+    pinMode(TFT_D4, OUTPUT);
+    pinMode(TFT_D5, OUTPUT);
+    pinMode(TFT_D6, OUTPUT);
+    pinMode(TFT_D7, OUTPUT);
+    pinMode(TFT_WR, OUTPUT);
+    pinMode(TFT_RD, OUTPUT);
+    pinMode(TFT_CS, OUTPUT);
+    pinMode(TFT_DC, OUTPUT);
+    pinMode(TFT_RST, OUTPUT);
+    digitalWrite(TFT_RD, HIGH);
+
+    // Display reset sequence (GC9307 needs longer reset pulse)
+    digitalWrite(TFT_RST, HIGH);
+    delay(50);
+    digitalWrite(TFT_RST, LOW);
+    delay(100);
+    digitalWrite(TFT_RST, HIGH);
+    delay(200);
+
+    // Backlight output (PWM attached lazily in _setBrightness)
+    pinMode(TFT_BL, OUTPUT);
+    digitalWrite(TFT_BL, HIGH);
+
+    bruceConfig.startupApp = "Bruce";
+    Serial.begin(115200);
+}
+
+/***************************************************************************************
 ** Function name: _post_setup_gpio()
-** Description:   second stage gpio setup (after TFT init) - apply full brightness + minimal GC9307 init
+** Description:   second stage gpio setup (after TFT init) - apply full brightness
 ***************************************************************************************/
 void _post_setup_gpio() {
+    // Initialize display with proper sequence
+    _init_display();
+    
+    // Apply full brightness
     _setBrightness(100);
-
-    // Minimal GC9307 init (ST7789 driver + minimal commands to turn on display)
-    // Use tft.native()->writedata() since writedata() is not exposed in tft_display
-    TFT_eSPI *tft_native = tft.native();
-    tft.writecommand(0x11); // SLPOUT - Sleep out
-    delay(120);
-    tft.writecommand(0x29); // DISPON - Display on
-    delay(20);
 }
 
 /***************************************************************************************
