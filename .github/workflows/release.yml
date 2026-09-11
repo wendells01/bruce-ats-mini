@@ -61,7 +61,7 @@ jobs:
 
       - name: Rename binary
         run: |
-          mv Bruce/Bruce-*.bin "Bruce/Bruce-ats-mini-${{ github.ref_name }}.bin"
+          mv Bruce/Bruce-ats-mini.bin "Bruce/Bruce-ats-mini-${{ github.ref_name }}-merged.bin"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
