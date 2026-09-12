@@ -1,71 +1,70 @@
 # Bruce ATS Mini — Pentest Firmware for ATS Mini Radio
 
-A pentest-only port of [Bruce Firmware](https://github.com/pr3y/Bruce) for the **ATS Mini** handheld radio. This build keeps the offensive-security toolbox (WiFi, BLE, WebUI, JS) and drops everything to do with radio. The ATS Mini's stock radio firmware stays on the device for actual RF use.
-
-## Overview
-
-The ATS Mini is a small ESP32-S3 radio. Stock firmware handles the radio side. This project is a **separate firmware** you flash when you want Bruce's pentest features instead. It installs over the radio firmware, so you pick one or the other, not both. There is no radio functionality here by design, and no CC1101, NRF24, PN532, IR, SD, or GPS support.
-
-## Features
-
-- **WiFi attacks**: Beacon Spam, Deauth, Evil Portal, ARP Spoof, Responder, Scan Hosts, Wardriving, WireGuard, Brucegotchi
-- **BLE**: Scan, Spam (iOS / Windows / Android), BadBLE (DuckyScript)
-- **WebUI** over the browser
-- **JS Interpreter** (mQuickJS)
-- **LittleFS File Manager** (list files, view JPG, QR / PIX codes)
-- **Config** (brightness, dim time, orientation, UI color, sleep)
-- **Clock / NTP** sync
-- **ESPNOW** file and command transfer
+This is a fork of [pr3t3nd3r/Bruce](https://github.com/pr3y/Bruce) that
+ports the Bruce pentest toolbox to one board only: the ATS Mini handheld
+radio. It keeps the offensive-security modules (WiFi, BLE, WebUI, JS
+interpreter, LittleFS file manager, ESPNOW, clock) and drops everything
+the radio hardware cannot do. There is no radio functionality here by
+design. A Launcher-based firmware switcher for the same radio lives in
+[wendells01/Launcher](https://github.com/wendells01/Launcher).
 
 ## Hardware
 
-**Supported: ATS Mini** (ESP32-S3-WROOM-1, 16MB Flash, 8MB PSRAM, ST7789/GC9307 170x320 display, rotary encoder).
+ATS Mini: ESP32-S3-WROOM-1, 16 MB flash, 8 MB PSRAM, GC9307/ST7789
+170x320 display on an 8-bit parallel bus, rotary encoder with push
+button, no SD slot. Not supported in this port: CC1101, NRF24, PN532,
+IR, RGB LED, SD card, GPS, SI4732 radio RX/TX, BadUSB HID (USB CDC
+only), battery fuel gauge (ADC percent only).
 
-**Not supported** (not built into this port):
+## Display init
 
-- CC1101, NRF24, PN532 sub-GHz / RFID modules
-- IR, RGB LED, SD card, GPS
-- Radio (SI4732/4735) RX or TX
-- BadUSB HID (the ATS Mini is USB CDC only)
-- Battery fuel gauge (ADC percent only)
+The panel runs on the ST7789 driver with INIT_SEQUENCE_3. Units shipped
+with three panel variants, told apart at boot by the RDDID reply
+(command 0x04), following esp32-si4732/ats-mini issue 41:
+
+| RDDID | Panel | Fix applied at boot |
+|---|---|---|
+| 0x048181B3 | original | none, stock init |
+| 0x04858552 | high gamma | gamma curve 3 plus content-adaptive brightness 0xB1 |
+| 0x00009307 | inverted and mirrored | MADCTL 0xE8 |
+
+## Flash mode
+
+Flash mode must be DIO at 40 MHz. QIO at 80 MHz hangs the loader on
+this board. PSRAM uses octal mode. These are pinned in the board
+PlatformIO config, not negotiable.
+
+## Partition table note
+
+Releases ship a merged factory image (bootloader, partition table, app)
+that flashes at `0x0`. The embedded table lays out NVS, otadata, two
+4 MB OTA app slots, and a spiffs data partition. Do not flash the app
+binary alone unless you know the partition offsets; the merged image is
+the supported artifact.
 
 ## Flashing
 
-1. Download the latest `.bin` from [GitHub Releases](https://github.com/wendells01/bruce-ats-mini/releases).
-2. Put the device into download mode: hold the **boot** button and press **reset**.
-3. Flash with `esptool.py`:
+1. Download the `.bin` from
+   [Releases](https://github.com/wendells01/bruce-ats-mini/releases).
+2. Hold boot, press reset to enter download mode.
+3. `esptool.py --chip esp32s3 --port /dev/ttyUSB0 --baud 460800 write_flash 0x0 Bruce-ats-mini-vX.Y.Z-merged.bin`
 
-```sh
-esptool.py --chip esp32s3 --port /dev/ttyUSB0 --baud 460800 write_flash 0x0 Bruce-ats-mini-vX.Y.Z.bin
+## Dev workflow
+
+Pushes and pull requests build through GitHub Actions. Tagging `v*`
+triggers the release workflow, which builds the firmware and publishes
+the merged `.bin` to Releases:
+
 ```
-
-Or flash in the browser with the [Espressif Web Flasher](https://espressif.github.io/esptool-js/).
-
-## Development Workflow
-
-```sh
-# Clone, branch, change
-git clone https://github.com/wendells01/bruce-ats-mini.git
 git checkout -b my-feature
-# ... make changes ...
-
-# Push — CI builds automatically
 git push origin my-feature
 gh run watch
-
-# When ready, tag a release
-git tag v0.1.0 && git push origin v0.1.0
-gh run watch
-
-# Binary appears in GitHub Releases
+git tag vX.Y.Z && git push origin vX.Y.Z
 ```
-
-The CI builds each push and PR (`gh run watch` to monitor). Tagging `v*` triggers the release workflow, which builds the firmware and publishes the `.bin` to GitHub Releases.
 
 ## Credits
 
-Based on [Bruce Firmware](https://github.com/pr3y/Bruce) by pr3y.
-
-## License
-
-AGPL-3.0 (same as Bruce).
+Upstream: [pr3t3nd3r/Bruce](https://github.com/pr3y/Bruce).
+User-contributed fixes in this port: RDDID panel detection for the
+three GC9307 variants; encoder pins with internal pull-ups; DIO/40MHz
+flash stability fix; octal PSRAM mode.
