@@ -78,7 +78,7 @@ jobs:
         run: |
           esptool.py --chip esp32s3 merge_bin \
             --flash_mode dio \
-            --flash_freq 40m \
+            --flash_freq 80m \
             --flash_size 16MB \
             -o merged.bin \
             0x0 .pio/build/ats-mini/bootloader.bin \
