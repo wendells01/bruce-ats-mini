@@ -1,252 +1,55 @@
+// ATS Mini: ESP32-S3, GC9307 170x320 on an 8-bit parallel bus, rotary encoder
+// with a push button, battery voltage divider on GPIO4. No radio, RFID, I2C or
+// SD hardware is reachable, so nothing is assigned to bruceConfigPins.
+
 #include "core/powerSave.h"
 #include <globals.h>
 #include <interface.h>
 
-#include <rotary_decoder.h>
-#include <esp_task_wdt.h>
+#include "hal/bright/bright.h"
+#include "hal/device.h"
+#include "hal/inputs/encoder.h"
 
-static RotaryDecoder encoder;
+#define ENC_A 2
+#define ENC_B 1
+#define ENC_SEL 21
 
-static bool encoderInitialized = false;
-static bool backlightInitialized = false;
-
-// PWM channel for the TFT backlight (GPIO38)
-#define ATSMINI_BL_CHANNEL 0
-
-// Feed task watchdog during long operations (BLE, etc.)
-static inline void feed_task_wdt() {
-    esp_task_wdt_reset();
+static DeviceEncoder encoderCfg() {
+    DeviceEncoder cfg;
+    cfg.pin_a = ENC_A;
+    cfg.pin_b = ENC_B;
+    cfg.pin_sel = ENC_SEL;
+    cfg.pin_esc = -1; // no dedicated back button: long-press on the knob is Esc
+    cfg.pullup = true;
+    return cfg;
 }
 
-/***************************************************************************************
-** Function name: _init_display()
-** Description:   Initialize display with proper GC9307/ST7789 sequence
-**                Based on original ATS Mini firmware (ats-mini.ino)
-***************************************************************************************/
-void _init_display() {
-    // TFT display setup - basic init
-    tft.begin();
-    tft.setRotation(3);
-
-    // Detect and fix mirrored/inverted display (from original ATS Mini firmware)
-    // https://github.com/esp32-si4732/ats-mini/issues/41
-    // Read display ID (3rd byte of RDDID)
-    // Use tft.native()->readcommand8() since readcommand8() is not exposed in tft_display
-    TFT_eSPI *tft_native = tft.native();
-    uint8_t did3 = tft_native->readcommand8(0x04, 3);  // ST7789_RDDID = 0x04
-    // 0x048181B3 - original display
-    // 0x04858552 - high gamma display
-    // 0x00009307 - inverted & mirrored display
-    if (did3 == 0x93) {
-        // Inverted & mirrored display fix
-        tft.invertDisplay(0);
-        tft.writecommand(0x36);  // MADCTL
-        tft.native()->writedata(0xE8);  // TFT_MAD_MV | TFT_MAD_MX | TFT_MAD_MY | TFT_MAD_BGR
-    } else if (did3 == 0x85) {
-        // High gamma display
-        tft.writecommand(0x26);  // GAMSET
-        tft.native()->writedata(8);  // Gamma Curve 3
-
-        tft.writecommand(0x55);  // WRCACE (content adaptive brightness and color)
-        tft.native()->writedata(0xB1);  // High enhancement, UI mode
-    }
-
-    // Clear screen
-    tft.fillScreen(0x0000);  // Black
-
-    // Backlight PWM setup (handled by _setBrightness)
-    _setBrightness(100);
-}
-
-/***************************************************************************************
-** Function name: _setup_gpio()
-** Location: main.cpp
-** Description:   initial setup for the device
-***************************************************************************************/
 void _setup_gpio() {
-    // Rotary encoder pins with internal pull-ups
-    pinMode(ENCODER_PIN_A, INPUT_PULLUP);
-    pinMode(ENCODER_PIN_B, INPUT_PULLUP);
-    pinMode(ENCODER_PUSH_BUTTON, INPUT_PULLUP);
-
-    // TFT 8-bit parallel data bus pins as outputs
-    pinMode(TFT_D0, OUTPUT);
-    pinMode(TFT_D1, OUTPUT);
-    pinMode(TFT_D2, OUTPUT);
-    pinMode(TFT_D3, OUTPUT);
-    pinMode(TFT_D4, OUTPUT);
-    pinMode(TFT_D5, OUTPUT);
-    pinMode(TFT_D6, OUTPUT);
-    pinMode(TFT_D7, OUTPUT);
-    pinMode(TFT_WR, OUTPUT);
-    pinMode(TFT_RD, OUTPUT);
-    pinMode(TFT_CS, OUTPUT);
-    pinMode(TFT_DC, OUTPUT);
-    pinMode(TFT_RST, OUTPUT);
-    digitalWrite(TFT_RD, HIGH);
-
-    // Display reset sequence (GC9307 needs longer reset pulse)
-    digitalWrite(TFT_RST, HIGH);
-    delay(50);
-    digitalWrite(TFT_RST, LOW);
-    delay(100);
-    digitalWrite(TFT_RST, HIGH);
-    delay(200);
-
-    // Backlight output (PWM attached lazily in _setBrightness)
-    pinMode(TFT_BL, OUTPUT);
-    digitalWrite(TFT_BL, HIGH);
-
-    bruceConfig.startupApp = "Bruce";
-    Serial.begin(115200);
+    // FOUR3: four quadrature steps per detent, which is what this knob produces.
+    // If one detent moves two menu entries (or every other one is lost), change
+    // the mode here before touching anything else.
+    hal_encoder_init(encoderCfg(), EncoderLatchMode::FOUR3);
 }
 
-/***************************************************************************************
-** Function name: _post_setup_gpio()
-** Description:   second stage gpio setup (after TFT init) - apply full brightness
-***************************************************************************************/
 void _post_setup_gpio() {
-    // Initialize display with proper sequence
-    _init_display();
-    
-    // Apply full brightness
-    _setBrightness(100);
+    // GC9307 sub-variants (ats-mini#41): some panels come up mirrored/inverted,
+    // others with a washed-out gamma. RDDID byte 3 is the only way to tell.
+    uint8_t did3 = tft.native()->readcommand8(0x04, 3);
+    if (did3 == 0x93) { // 0x00009307: inverted & mirrored
+        tft.invertDisplay(0);
+        tft.writecommand(0x36);        // MADCTL
+        tft.native()->writedata(0xE8); // MV | MX | MY | BGR
+    } else if (did3 == 0x85) {         // 0x04858552: high gamma
+        tft.writecommand(0x26);        // GAMSET
+        tft.native()->writedata(8);    // gamma curve 3
+        tft.writecommand(0x55);        // WRCACE
+        tft.native()->writedata(0xB1); // high enhancement, UI mode
+    }
+
+    hal_bright_attach(TFT_BL);
+    hal_bright_set(TFT_BL, 100);
 }
 
-/***************************************************************************************
-** Function name: getBattery()
-** Description:   Delivers the battery value from 0-100
-**                Reads the ADC on GPIO4. Battery range: 3.5V (0%) to 4.2V (100%)
-***************************************************************************************/
-int getBattery() {
-    static bool adcInitialized = false;
-    if (!adcInitialized) {
-        pinMode(BATTERY_PIN, INPUT);
-        analogSetAttenuation(ADC_11db);
-        adcInitialized = true;
-    }
+void _setBrightness(uint8_t brightval) { hal_bright_set(TFT_BL, brightval); }
 
-    uint32_t mv = analogReadMilliVolts(BATTERY_PIN);
-
-    // Approximate Li-ion voltage curve (no fuel gauge IC on this board)
-    const float MIN_VOLTAGE = 3500.0f; // empty
-    const float MAX_VOLTAGE = 4200.0f; // full
-
-    int percent = (int)(((float)mv - MIN_VOLTAGE) / (MAX_VOLTAGE - MIN_VOLTAGE) * 100.0f);
-
-    if (percent < 0) percent = 0;
-    if (percent > 100) percent = 100;
-
-    return percent;
-}
-
-/***************************************************************************************
-** Function name: isCharging()
-** Description:   ATS Mini has no fuel-gauge/charger detection wired to the MCU
-***************************************************************************************/
-bool isCharging() { return false; }
-
-/*********************************************************************
-** Function: _setBrightness
-** location: settings.cpp
-** set brightness value (0-100) via PWM on GPIO38
-**********************************************************************/
-void _setBrightness(uint8_t brightval) {
-    if (!backlightInitialized) {
-        ledcAttachChannel(TFT_BL, 16000, 10, ATSMINI_BL_CHANNEL);
-        backlightInitialized = true;
-    }
-
-    if (brightval == 0) {
-        ledcWrite(TFT_BL, 0);
-    } else {
-        // Map 1-100 to PWM range (1-1023 for 10-bit) with float precision
-        int bl = MINBRIGHT + round(((1023.0f - MINBRIGHT) * brightval / 100.0f));
-        if (bl > 1023) bl = 1023;
-        if (bl < MINBRIGHT) bl = MINBRIGHT;
-        ledcWrite(TFT_BL, bl);
-    }
-}
-
-/*********************************************************************
-** Function: pollEncoder
-** Samples the rotary encoder A/B lines (called from a dedicated FreeRTOS
-** task every 4ms, decoupled from InputHandler - see main.cpp)
-**********************************************************************/
-void pollEncoder(void) {
-    if (!encoderInitialized) {
-        encoder.begin(ENCODER_PIN_A, ENCODER_PIN_B, 4);  // 4 steps per detent = 1 step per physical click
-        encoderInitialized = true;
-    }
-    encoder.poll();
-}
-
-/*********************************************************************
-** Function: InputHandler
-** Handles the variables PrevPress, NextPress, SelPress, AnyKeyPress and EscPress
-**********************************************************************/
-void InputHandler(void) {
-    static unsigned long tm = millis();  // debounce for the encoder button
-    static unsigned long tm2 = millis(); // delay between Select and encoder (avoid missclick)
-    static long posDifference = 0;
-    static long lastPos = 0;
-
-    long newPos = encoder.getPosition();
-    if (newPos != lastPos) {
-        posDifference += (newPos - lastPos);
-        RotaryNetSteps += (newPos - lastPos);
-        lastPos = newPos;
-        tm2 = millis();
-    }
-
-    bool sel = false;
-    if (millis() - tm > 200 || LongPress) {
-        sel = (digitalRead(ENCODER_PUSH_BUTTON) == LOW);
-    }
-
-    if (posDifference != 0 || sel) {
-        if (!wakeUpScreen()) AnyKeyPress = true;
-        else return;
-    }
-
-    if (posDifference > 0) { PrevPress = true; posDifference--; tm2 = millis(); }
-    if (posDifference < 0) { NextPress = true; posDifference++; tm2 = millis(); }
-
-    if (sel && millis() - tm2 > 200) {
-        posDifference = 0;
-        SelPress = true;
-        tm = millis();
-    }
-}
-
-/*********************************************************************
-** Function: checkReboot
-** Long-press the encoder button to power off
-**********************************************************************/
-void checkReboot() {
-    int c = 0;
-    while (digitalRead(ENCODER_PUSH_BUTTON) == LOW) {
-        delay(100);
-        c++;
-        if (c > 20) { // ~2s long press
-            powerOff();
-        }
-    }
-}
-
-/*********************************************************************
-** Function: powerOff
-** Turns off the device (deep sleep, wake on encoder button)
-**********************************************************************/
-void powerOff() {
-    _setBrightness(0);
-    tft.writecommand(0x10); // SLPIN
-    esp_sleep_enable_ext0_wakeup((gpio_num_t)ENCODER_PUSH_BUTTON, 0);
-    esp_deep_sleep_start();
-}
-
-/*********************************************************************
-** Function: goToDeepSleep
-** Puts the device into DeepSleep
-**********************************************************************/
-void goToDeepSleep() { powerOff(); }
+void InputHandler(void) { hal_encoder_poll(encoderCfg()); }
